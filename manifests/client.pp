@@ -1,11 +1,20 @@
 # Class for Nagios Remote Plugin Executor
 class nagios::client (
-  $host_ip = undef,
-  $nagios_server_host = undef,
-) {
+  $monitored_ip,
+  $nagios_server_host,
+  $hostgroups = $nagios::params::hostgroups,
+) inherits nagios::params {
+
+  include nagios::params
 
   package { ['nrpe', 'nagios-plugins-load', 'nagios-plugins-disk']:
     ensure => present,
+  } ->
+
+  file_line { 'server_address':
+    path   => '/etc/nagios/nrpe.cfg',
+    match  => 'server_address=',
+    line   => "server_address=${monitored_ip}",
   } ->
 
   file_line { 'allowed_hosts':
@@ -25,7 +34,7 @@ class nagios::client (
   } ->
 
   file {'/usr/lib64/nagios/plugins/virsh_nodeinfo':
-    mode    => 755,
+    mode    => '0755',
     seltype => 'nagios_unconfined_plugin_exec_t',
     content => template('nagios/virsh_nodeinfo.erb')
   } ~>
@@ -42,17 +51,23 @@ class nagios::client (
     action => 'accept',
   }
 
+  $services = "${::openstack_services_enabled}"
+
+  $hg = hostgroups_by_services($hostgroups, $services)
+
   if "${settings::storeconfigs_backend}" == 'puppetdb' {
-    @@nagios_host {"$::fqdn":
-      address    => "$host_ip",
-      hostgroups => "${openstack_services_enabled}",
+    @@nagios_host {"${::fqdn}":
+      address    => "${monitored_ip}",
+      hostgroups => "openstack,${hg}",
+      notes      => "${services}",
       use        => 'linux-server',
     }
   }
   else {
-    $nulle = nagios_host_add("$::fqdn",
-      { address    => "$host_ip",
-        hostgroups => "${::openstack_services_enabled}",
+    nagios_host_add("${::fqdn}",
+      { address    => "${monitored_ip}",
+        hostgroups => "openstack,${hg}",
+        notes      => "${services}",
         use        => 'linux-server',
       }
     )

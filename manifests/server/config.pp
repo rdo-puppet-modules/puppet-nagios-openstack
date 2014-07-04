@@ -1,19 +1,18 @@
 # Nagios server configuration
 class nagios::server::config(
+  $admin_group,
+  $admin_name,
   $admin_password,
-  $controller_ip,
-  $nagios_admin,
-  $nagios_group,
-  $nagios_user,
-  $neutron,
-  $swift,
+  $admin_user,
+  $openstack_adm_passwd,
+  $openstack_controller,
 ) {
 
   class { 'nagios::server::base':
     admin_password => $admin_password,
-    nagios_admin   => $nagios_admin,
-    nagios_user    => $nagios_user,
-    nagios_group   => $nagios_group,
+    admin_name     => $admin_name,
+    admin_user     => $admin_user,
+    admin_group    => $admin_group,
     require        => Package['nagios'],
   }
 
@@ -23,13 +22,11 @@ class nagios::server::config(
   }
 
   class { 'nagios::server::openstack':
-    admin_password => $admin_password,
-    controller_ip  => $controller_ip,
-    nagios_user    => $nagios_user,
-    nagios_group   => $nagios_group,
-    neutron        => $neutron,
-    swift          => $swift,
-    require        => Class['nagios::server::base'],
-    before         => Service['nagios'],
+    admin_user           => $admin_user,
+    admin_group          => $admin_group,
+    openstack_adm_passwd => openstack_adm_passwd,
+    openstack_controller => openstack_controller,
+    require => Class['nagios::server::base'],
+    before  => Service['nagios'],
   }
 }

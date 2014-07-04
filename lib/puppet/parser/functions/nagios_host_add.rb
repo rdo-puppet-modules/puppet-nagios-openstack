@@ -1,8 +1,7 @@
 require 'yaml'
 
 module Puppet::Parser::Functions
-  newfunction(:nagios_host_add, :type => :rvalue, :doc => "") do |args|
-    # To do - Use puppet variables
+  newfunction(:nagios_host_add, :doc => "") do |args|
     hosts_dir='/var/lib/puppet/server_data/nagios/hosts'
 
     if Dir[hosts_dir].empty?

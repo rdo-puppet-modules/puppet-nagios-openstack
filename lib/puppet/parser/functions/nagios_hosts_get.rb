@@ -2,7 +2,6 @@ require 'yaml'
 
 module Puppet::Parser::Functions
   newfunction(:nagios_hosts_get, :type => :rvalue, :doc => "") do
-    # To do - Use puppet variables
     hosts_dir='/var/lib/puppet/server_data/nagios/hosts'
 
     nagios_hosts = {}

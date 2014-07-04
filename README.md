@@ -1,14 +1,71 @@
-puppet-nagios-openstack
-=======================
+# puppet-nagios-openstack
 
-Nagios Puppet module for OpenStack 
+Nagios Puppet module for monitoring OpenStack Nodes providing predefined hostgroups and services on Red Hat OSes family - Contributors welcome!
 
-Add nagios::client class to every OpenStack node to be monitored.  
-This will define the host and its related OpenStack services definitions to be added to Nagios.
+The `nagios::client` class, once included on an OpenStack node such as Nova-compute or a 'Controller' host, grabs the OpenStack related services to be monitored.
 
-Use nagios::server class to setup a Nagios server.
-The Nagios hosts definitions will be the collected with either:
+The `nagios::server` class configures the Nagios server side by adding the Nagios hosts definitions collected using either:
 - PuppetDB if it's configured
-- A built-in mechanism definition sharing
+or
+- A built-in definition sharing mechanism
 
-The server catalog should be (re)applied after the OpenStack nodes have been deployed (or changed)
+# Examples
+## Simple module usage
+### Client
+```
+class {'nagios::client':
+  monitored_ip       => '192.168.0.100',
+  nagios_server_host => '192.168.0.200',
+}
+```
+
+### Server
+```
+class {'nagios::server':
+  admin_password       => 'CHANGEME',
+  openstack_adm_passwd => 'CHANGEME',
+  openstack_controller => '192.168.0.1,
+}
+```
+
+## Integrated
+
+### Client
+```
+# Example Monitoring client
+class example::monitoring::client (
+  $monitoring,
+  $monitoring_host,
+  $monitoring_interface,
+) {
+  case $monitoring {
+    'nagios': {
+      class {'nagios::client':
+        monitored_ip       => getvar("ipaddress_${monitoring_interface}"),
+        nagios_server_host => $monitoring_host,
+      }
+    }
+  }
+}
+```
+
+### Server
+```
+# Example Monitoring Server
+class example::server (
+  $admin_password,
+  $monitoring,
+  $monitoring_adm_passwd,
+  $controller_admin_host,
+) {
+  case $monitoring {
+    'nagios': {
+      class {'nagios::server':
+        admin_password       => $monitoring_adm_passwd,
+        openstack_adm_passwd => $admin_password,
+        openstack_controller => $controller_admin_host,
+      }
+    }
+  }
+}
+```

@@ -1,13 +1,13 @@
 # Class for Nagios server
 class nagios::server (
-  $controller_ip,
-  $neutron,
-  $swift,
-  $nagios_group   = 'nagios',
-  $nagios_user    = 'nagios',
-  $nagios_admin   = 'nagiosadmin',
-  $nagios_admin_password,
-  ) {
+  $admin_group     = $nagios::params::admin_group,
+  $admin_name      = $nagios::params::admin_name,
+  $admin_password,
+  $admin_user      = $nagios::params::admin_user,
+  $openstack_adm_passwd,
+  $openstack_controller,
+  $server_packages = $nagios::params::server_packages,
+) inherits nagios::params {
 
   Exec { timeout => 300 }
 
@@ -16,29 +16,27 @@ class nagios::server (
     group => $nagios_group,
   }
 
-  package {['nagios', 'nagios-plugins-nrpe', 'nagios-plugins-ping']:
-    ensure => present,
+  package {$server_packages:
+    ensure => present
   }
 
   class {'nagios::server::config':
-    admin_password => $nagios_admin_password,
-    controller_ip  => $controller_ip,
-    nagios_admin   => $nagios_admin,
-    nagios_user    => $nagios_user,
-    nagios_group   => $nagios_group,
-    require        => Package['nagios'],
-    notify         => Service['httpd'],
-
-    neutron        => $neutron,
-    swift          => $swift,
+    admin_group    => $admin_group,
+    admin_name     => $admin_name,
+    admin_password => $admin_password,
+    admin_user     => $admin_user,
+    openstack_adm_passwd => openstack_adm_passwd,
+    openstack_controller => openstack_controller,
+    require => Package['nagios'],
+    notify  => Service['httpd'],
   }
 
   class {'apache':}
   class {'apache::mod::php':}
   class {'apache::mod::wsgi':}
 
-  # The apache module purges files it doesn't know about
-  # avoid this by referencing them here
+  # To avoid apache module to purges files it doesn't know about:
+  file {'/etc/httpd/conf.d/rootredirect.conf':}
   file {'/etc/httpd/conf.d/nagios.conf':}
 
   service {['nagios']:

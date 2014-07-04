@@ -1,179 +1,91 @@
 # Openstack class for Nagios server
 class nagios::server::openstack(
-  $admin_password,
-  $controller_ip,
-  $nagios_group,
-  $nagios_user,
-
-  $neutron = true,
-  $swift = true,
-) {
+  $admin_group,
+  $admin_user,
+  $commands,
+  $hostgroups = $nagios::params::hostgroups,
+  $openstack_adm_passwd,
+  $openstack_controller,
+  $packages,
+  $services,
+) inherits nagios::params {
 
   File {
-    owner => $nagios_user,
-    group => $nagios_group,
-  }
-
-  Nagios_command {
-    target => '/etc/nagios/conf.d/commands.cfg',
-  }
-
-  Nagios_host {
-    target => '/etc/nagios/conf.d/hosts.cfg'
-  }
-
-  Nagios_hostgroup {
-    target => '/etc/nagios/conf.d/hostgroups.cfg'
-  }
-
-  Nagios_service {
-    target => '/etc/nagios/conf.d/services.cfg',
-  }
-
-  define nagios::server::service (
-    $command_name,
-    $content,
-    $hostgroup_name,
-    $hostgroup_desc,
-    $package_name = undef,
-    $service_desc,
-  ) {
-    if (empty(nagios_hostgroups("${hostgroup_name}"))) {
-      alert ('Undefined nagios-openstack service')
-    }
-
-    if ($package_name) {
-      package { "$package_name":
-        ensure => present
-      }
-    }
-
-    nagios_hostgroup {"${hostgroup_name}":
-      alias => "${hostgroup_desc}"
-    }
-
-    file {"/usr/lib64/nagios/plugins/${command_name}":
-     mode    => 755,
-     seltype => 'nagios_unconfined_plugin_exec_t',
-     content => "${content}",
-    }
-
-    nagios_command {"${command_name}":
-      command_line => "/usr/lib64/nagios/plugins/${command_name}",
-    }
-
-    nagios_service {"${command_name}":
-      hostgroup_name        => "${hostgroup_name}",
-      service_description   => "${service_desc}",
-      check_command         => "${command_name}",
-      normal_check_interval => '5',
-      use                   => 'generic-service',
-    }
+    owner => $admin_user,
+    group => $admin_group,
   }
 
   file {'/etc/nagios/keystonerc_admin':
     ensure  => 'present',
-    mode    => 600,
+    mode    => 0600,
     content => template('nagios/keystonerc_admin.erb'),
   }
 
-  # Nodes
-  nagios_hostgroup {'openstack-node':
-    alias => 'Openstack Node',
+  $file_defaults = {
+    'ensure'  => present,
+    'mode'    => '0755',
+    'seltype' => 'nagios_unconfined_plugin_exec_t',
   }
 
-  # Services
-  nagios::server::service {'keystone':
-    hostgroup_name => 'openstack-keystone',
-    hostgroup_desc => 'OpenStack Keystone',
-    package_name   => 'python-keystoneclient',
-    command_name   => 'keystone-user-list',
-    content        => template('nagios/keystone-user-list.erb'),
-    service_desc   => 'Number of keystone users',
+  $command_defaults = {
+    'ensure'  => present,
+    'target' => '/etc/nagios/conf.d/commands.cfg',
   }
 
-  nagios::server::service {'nova-api':
-    hostgroup_name => 'openstack-nova-api',
-    hostgroup_desc => 'OpenStack Nova API',
-    package_name   => 'python-novaclient',
-    command_name   => 'nova-list',
-    content        => template('nagios/nova-list.erb'),
-    service_desc   => 'Number of nova instances',
+  $hostgroup_defaults = {
+    'ensure'  => present,
+    'target' => '/etc/nagios/conf.d/hostgroups.cfg',
   }
 
-  nagios::server::service {'nova-compute':
-    hostgroup_name => 'openstack-nova-compute',
-    hostgroup_desc => 'OpenStack Nova Compute',
-    command_name   => 'check_nrpe!virsh_nodeinfo',
-    content        => '',
-    service_desc   => 'Virsh nodeinfo',
+  $service_defaults = {
+    'ensure'  => present,
+    'target' => '/etc/nagios/conf.d/services.cfg',
   }
 
-  nagios::server::service {'ceilometer-api':
-    hostgroup_name => 'openstack-ceilometer-api',
-    hostgroup_desc => 'OpenStack Ceilometer API',
-    package_name   => 'python-ceilometerclient',
-    command_name   => 'ceilometer-list',
-    content        => template('nagios/ceilometer-list.erb'),
-    service_desc   => 'Number of ceilometer objects',
+  # Cannot used Hiera for the files when content is a template
+  # unless using another set of variables
+  file {"/usr/lib64/nagios/plugins/ceilometer-list":
+    content => template('nagios/ceilometer-list.erb')
+  }
+  file {"/usr/lib64/nagios/plugins/cinder-list":
+    content => template('nagios/cinder-list.erb')
+  }
+  file {"/usr/lib64/nagios/plugins/glance-list":
+    content => template('nagios/glance-list.erb')
+  }
+  file {"/usr/lib64/nagios/plugins/heat-list":
+    content => template('nagios/heat-list.erb')
+  }
+  file {"/usr/lib64/nagios/plugins/keystone-user-list":
+    content => template('nagios/keystone-user-list.erb')
+  }
+  file {"/usr/lib64/nagios/plugins/neutron-net-list":
+    content => template('nagios/neutron-net-list.erb')
+  }
+  file {"/usr/lib64/nagios/plugins/neutron-network-check":
+    content => template('nagios/neutron-network-check')
+  }
+  file {"/usr/lib64/nagios/plugins/swift-list":
+    content => template('nagios/swift-list.erb')
+  }
+  file {"/usr/lib64/nagios/plugins/nova-list":
+    content => template('nagios/nova-list.erb')
   }
 
-  nagios::server::service {'cinder-api':
-    hostgroup_name => 'openstack-cinder-api',
-    hostgroup_desc => 'OpenStack Cinder API',
-    package_name   => 'python-cinderclient',
-    command_name   => 'cinder-list',
-    content        => template('nagios/cinder-list.erb'),
-    service_desc   => 'Number of cinder volumes',
+  package {$packages:
+    ensure => present
   }
 
-  nagios::server::service {'glance-api':
-    hostgroup_name => 'openstack-glance-api',
-    hostgroup_desc => 'OpenStack Glance API',
-    package_name   => 'python-glanceclient',
-    command_name   => 'glance-list',
-    content        => template('nagios/glance-list.erb'),
-    service_desc   => 'Number of glance images',
-  }
+  create_resources(nagios_command, $commands, $command_defaults)
 
-  nagios::server::service {'heat-api':
-    hostgroup_name => 'openstack-heat-api',
-    hostgroup_desc => 'OpenStack Heat API',
-    package_name   => 'python-heatclient',
-    command_name   => 'heat-list',
-    content        => template('nagios/heat-list.erb'),
-    service_desc   => 'Number of heat objects',
-  }
+  create_resources(nagios_hostgroup, $hostgroups, $hostgroup_defaults)
 
-  if str2bool("$neutron") {
-    nagios::server::service {'neutron-server':
-      hostgroup_name => 'neutron-server',
-      hostgroup_desc => 'Neutron API',
-      package_name   => 'python-neutronclient',
-      command_name   => 'neutron-net-list',
-      content        => template('nagios/neutron-net-list.erb'),
-      service_desc   => 'Number of neutron networks',
-    }
+  $services_used = nagios_services_active($services)
 
-    nagios::server::service {'neutron-network-check':
-      hostgroup_name => 'openstack-server',
-      hostgroup_desc => 'OpenStack API',
-      package_name   => 'python-neutronclient',
-      command_name   => 'neutron-network-check',
-      content        => template('nagios/neutron-network-check'),
-      service_desc   => 'Neutron network check: Adds an instance, allocates a floating IP to it',
-    }
-  }
+  create_resources(nagios_service, $services_used, $service_defaults)
 
-  if str2bool("$swift") {
-    nagios::server::service {'swift-api':
-      hostgroup_name => 'openstack-swift-api',
-      hostgroup_desc => 'OpenStack Swift API',
-      package_name   => 'python-swiftclient',
-      command_name   => 'swift-list',
-      content        => template('nagios/swift-list.erb'),
-      service_desc   => 'Number of swift objects',
-    }
+  Nagios_host {
+    target => '/etc/nagios/conf.d/hosts.cfg'
   }
 
   if "${settings::storeconfigs_backend}" == 'puppetdb' {
