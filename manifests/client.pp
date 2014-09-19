@@ -45,12 +45,6 @@ class nagios::client (
     hasstatus => true,
   }
 
-  firewall {'001 Nagios NRPE incoming':
-    proto  => 'tcp',
-    dport  => '5666',
-    action => 'accept',
-  }
-
   $services = "${::openstack_services_enabled}"
 
   $hg = hostgroups_by_services($hostgroups, $services)

@@ -44,10 +44,4 @@ class nagios::server (
     enable    => true,
     hasstatus => true,
   }
-
-  firewall {'001 nagios incoming':
-    proto    => 'tcp',
-    dport    => ['80'],
-    action   => 'accept',
-  }
 }
